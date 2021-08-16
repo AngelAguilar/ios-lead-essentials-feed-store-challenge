@@ -31,15 +31,17 @@ public final class CoreDataFeedStore: FeedStore {
 	public func retrieve(completion: @escaping RetrievalCompletion) {
 		perform { context in
 			do {
-				let request = NSFetchRequest<ManagedCache>(entityName: ManagedCache.entity().name!)
-				request.returnsObjectsAsFaults = false
-				let managedCache = try context.fetch(request).first
-				if let localFeed = managedCache?.feed.compactMap({ ($0 as? ManagedFeedImage)?.local }),
-				   let timestamp = managedCache?.timestamp {
-					completion(.found(feed: localFeed, timestamp: timestamp))
+				if let managedCache = try ManagedCache.find(in: context) {
+					completion(
+						.found(
+							feed: managedCache.localFeed,
+							timestamp: managedCache.timestamp
+						)
+					)
 				} else {
 					completion(.empty)
 				}
+
 			} catch {
 				completion(.failure(error))
 			}
@@ -49,7 +51,7 @@ public final class CoreDataFeedStore: FeedStore {
 	public func insert(_ feed: [LocalFeedImage], timestamp: Date, completion: @escaping InsertionCompletion) {
 		perform { context in
 			do {
-				let managedCache = ManagedCache(context: context)
+				let managedCache = try ManagedCache.newUniqueInstance(in: context)
 				managedCache.timestamp = timestamp
 				managedCache.feed = ManagedCache.images(
 					from: feed,
